@@ -69,3 +69,5 @@ function gameLoop() {
 }
 
 gameLoop();
+
+console.log("2+2");
