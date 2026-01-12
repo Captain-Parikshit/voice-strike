@@ -35,7 +35,22 @@ goAwayActive: false,
 goAwayTimer: 0,
 goAwayDuration: 8,
 goAwayCooldown: 120,
-goAwayCooldownTimer: 0
+goAwayCooldownTimer: 0,
+
+// Cross Fire cooldown
+crossFireCooldown: 90,        // frames (~1.5 sec at 60fps)
+crossFireCooldownTimer: 0,
+// Fire Shot
+fireShotCooldown: 60,        // ~1 second
+fireShotCooldownTimer: 0,
+
+// Fire Breathing
+fireBreathingActive: false,
+fireBreathingTimer: 0,
+fireBreathingDuration: 40,
+fireBreathingCooldown: 150,
+fireBreathingCooldownTimer: 0
+
 
 };
 
@@ -126,6 +141,24 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "r") {
+    castFireShot();
+  }
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "f") {
+    startFireBreathing();
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (e.key.toLowerCase() === "f") {
+    stopFireBreathing();
+  }
+});
+
 
 function isColliding(a, b) {
   return (
@@ -160,7 +193,9 @@ function activateGoAway() {
 }
 
 function castCrossFire() {
-  const speed = 6;
+  if (player.crossFireCooldownTimer > 0) return;
+
+  const speed = 4;
 
   projectiles.push({
     x: player.facing === 1 ? player.x + player.width : player.x - 20,
@@ -168,13 +203,101 @@ function castCrossFire() {
     width: 20,
     height: 20,
     vx: player.facing * speed,
-    life: 300 // ~5 seconds at 60fps
+    life: 300 // ~5 seconds
   });
+
+  player.crossFireCooldownTimer = player.crossFireCooldown;
 }
 
+function castFireShot() {
+  if (
+    player.fireShotCooldownTimer > 0 ||
+    player.isAttacking ||
+    player.isDashing ||
+    player.goAwayActive
+  )
+    return;
+
+  const speed = 8;
+
+  // Fire projectile
+  projectiles.push({
+    x: player.facing === 1 ? player.x + player.width : player.x - 18,
+    y: player.y + player.height / 2 - 6,
+    width: 16,
+    height: 12,
+    vx: player.facing * speed,
+    life: 120 // ~2 seconds
+  });
+
+  // Pull Phoenix forward (mobility)
+  player.vx = player.facing * 4;
+  player.vy -= 1; // slight lift for mid-air feel
+
+  player.fireShotCooldownTimer = player.fireShotCooldown;
+}
+
+function startFireBreathing() {
+  if (
+    player.fireBreathingCooldownTimer > 0 ||
+    player.isDashing ||
+    player.isAttacking ||
+    player.goAwayActive
+  )
+    return;
+
+  player.fireBreathingActive = true;
+  player.fireBreathingTimer = player.fireBreathingDuration;
+  player.vx = 0;
+}
+
+function stopFireBreathing() {
+  player.fireBreathingActive = false;
+}
 
 // Update
 function update() {
+  // Fire Breathing cooldown
+if (player.fireBreathingCooldownTimer > 0) {
+  player.fireBreathingCooldownTimer--;
+}
+
+// Fire Breathing active
+if (player.fireBreathingActive) {
+  player.fireBreathingTimer--;
+
+  const range = 70;
+  const coneHeight = 40;
+
+  const cone = {
+    x:
+      player.facing === 1
+        ? player.x + player.width
+        : player.x - range,
+    y: player.y + 10,
+    width: range,
+    height: coneHeight
+  };
+
+  if (enemy.health > 0 && isColliding(cone, enemy)) {
+    enemy.health -= 1; // damage per frame
+    enemy.hitFlashTimer = 3;
+  }
+
+  if (player.fireBreathingTimer <= 0) {
+    player.fireBreathingActive = false;
+    player.fireBreathingCooldownTimer = player.fireBreathingCooldown;
+  }
+}
+
+// Cross Fire cooldown timer
+if (player.crossFireCooldownTimer > 0) {
+  player.crossFireCooldownTimer--;
+}
+// Fire Shot cooldown
+if (player.fireShotCooldownTimer > 0) {
+  player.fireShotCooldownTimer--;
+}
 
 // Go Away cooldown
 if (player.goAwayCooldownTimer > 0) {
@@ -328,7 +451,7 @@ for (let i = projectiles.length - 1; i >= 0; i--) {
 
   // Hit enemy
   if (enemy.health > 0 && isColliding(p, enemy)) {
-    enemy.health -= 25;
+    enemy.health -= 20;
     enemy.hitFlashTimer = 8;
     projectiles.splice(i, 1);
     continue;
@@ -381,6 +504,17 @@ if (player.goAwayActive) {
   ctx.fillStyle = "crimson";
 for (const p of projectiles) {
   ctx.fillRect(p.x, p.y, p.width, p.height);
+}
+if (player.fireBreathingActive) {
+  ctx.fillStyle = "rgba(255, 100, 0, 0.4)";
+  ctx.fillRect(
+    player.facing === 1
+      ? player.x + player.width
+      : player.x - 70,
+    player.y + 10,
+    70,
+    40
+  );
 }
 
 }
