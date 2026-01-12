@@ -12,6 +12,8 @@ const player = {
   vy: 0,
   onGround: false,
 
+  facing: 1, // 1 = right, -1 = left,
+
   // Dash
   isDashing: false,
   dashSpeed: 12,
@@ -26,10 +28,17 @@ const player = {
   attackTimer: 0,
   attackDuration: 10,
   attackCooldown: 15,
-  attackCooldownTimer: 0
-
+  attackCooldownTimer: 0,
 };
 
+const enemy = {
+  x: 600,
+  y: 420,
+  width: 40,
+  height: 60,
+  health: 100,
+  hitFlashTimer: 0,
+};
 
 const gravity = 0.5;
 const keys = {};
@@ -51,7 +60,6 @@ function getDashDirection() {
   return { x: dx / length, y: dy / length };
 }
 
-
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
 });
@@ -63,11 +71,13 @@ window.addEventListener("keyup", (e) => {
 window.addEventListener("mousedown", (e) => {
   if (player.isAttacking || player.attackCooldownTimer > 0) return;
 
-  if (e.button === 0) { // Left click
+  if (e.button === 0) {
+    // Left click
     startAttack("punch");
   }
 
-  if (e.button === 2) { // Right click
+  if (e.button === 2) {
+    // Right click
     startAttack("kick");
   }
 });
@@ -84,24 +94,57 @@ function startAttack(type) {
   // Stop movement during attack
   player.vx = 0;
 }
+function isColliding(a, b) {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+function getAttackHitbox() {
+  const range = player.attackType === "kick" ? 50 : 35;
+
+  return {
+    x:
+      player.facing === 1
+        ? player.x + player.width
+        : player.x - range,
+    y: player.y + 10,
+    width: range,
+    height: player.height - 20
+  };
+}
+
 
 // Update
 function update() {
+  if (player.isAttacking && enemy.health > 0) {
+    const hitbox = getAttackHitbox();
+
+    if (isColliding(hitbox, enemy)) {
+      enemy.health -= player.attackType === "kick" ? 15 : 10;
+      enemy.hitFlashTimer = 5;
+
+      // Prevent multi-hit per attack
+      player.isAttacking = false;
+    }
+  }
 
   // Attack cooldown
-if (player.attackCooldownTimer > 0) {
-  player.attackCooldownTimer--;
-}
-
-// During attack
-if (player.isAttacking) {
-  player.attackTimer--;
-  if (player.attackTimer <= 0) {
-    player.isAttacking = false;
-    player.attackType = null;
+  if (player.attackCooldownTimer > 0) {
+    player.attackCooldownTimer--;
   }
-}
 
+  // During attack
+  if (player.isAttacking) {
+    player.attackTimer--;
+    if (player.attackTimer <= 0) {
+      player.isAttacking = false;
+      player.attackType = null;
+    }
+  }
 
   // Dash cooldown
   if (player.dashCooldownTimer > 0) {
@@ -109,8 +152,12 @@ if (player.isAttacking) {
   }
 
   // Start dash
-if (keys["shift"] && !player.isDashing && !player.isAttacking && player.dashCooldownTimer === 0) {
-
+  if (
+    keys["shift"] &&
+    !player.isDashing &&
+    !player.isAttacking &&
+    player.dashCooldownTimer === 0
+  ) {
     const dir = getDashDirection();
     if (dir) {
       player.isDashing = true;
@@ -129,9 +176,15 @@ if (keys["shift"] && !player.isDashing && !player.isAttacking && player.dashCool
     }
   } else {
     // Normal movement
-    if (keys["a"]) player.vx = -player.speed;
-    else if (keys["d"]) player.vx = player.speed;
-    else player.vx = 0;
+    if (keys["a"]) {
+      player.vx = -player.speed;
+      player.facing = -1;
+    } else if (keys["d"]) {
+      player.vx = player.speed;
+      player.facing = 1;
+    } else {
+      player.vx = 0;
+    }
 
     // Jump
     if (keys["w"] && player.onGround) {
@@ -153,29 +206,33 @@ if (keys["shift"] && !player.isDashing && !player.isAttacking && player.dashCool
     player.vy = 0;
     player.onGround = true;
   }
+  if (enemy.hitFlashTimer > 0) {
+    enemy.hitFlashTimer--;
+  }
 }
-
 
 // Draw
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Phoenix body (temporary rectangle)
-  ctx.fillStyle = "orange";
+  // Phoenix body
+  if (player.isAttacking) {
+    ctx.fillStyle = player.attackType === "punch" ? "red" : "darkred";
+  } else if (player.isDashing) {
+    ctx.fillStyle = "yellow";
+  } else {
+    ctx.fillStyle = "orange";
+  }
+
   ctx.fillRect(player.x, player.y, player.width, player.height);
 
-  // Phoenix body
-if (player.isAttacking) {
-  ctx.fillStyle = player.attackType === "punch" ? "red" : "darkred";
-} else if (player.isDashing) {
-  ctx.fillStyle = "yellow";
-} else {
-  ctx.fillStyle = "orange";
+  // Enemy
+  if (enemy.health > 0) {
+    ctx.fillStyle = enemy.hitFlashTimer > 0 ? "white" : "blue";
+    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+  }
 }
 
-ctx.fillRect(player.x, player.y, player.width, player.height);
-
-}
 
 // Game loop
 function gameLoop() {
@@ -185,4 +242,3 @@ function gameLoop() {
 }
 
 gameLoop();
-
