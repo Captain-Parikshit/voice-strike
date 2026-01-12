@@ -18,7 +18,16 @@ const player = {
   dashDuration: 10,
   dashTimer: 0,
   dashCooldown: 30,
-  dashCooldownTimer: 0
+  dashCooldownTimer: 0,
+
+  // Attacks
+  isAttacking: false,
+  attackType: null, // "punch" or "kick"
+  attackTimer: 0,
+  attackDuration: 10,
+  attackCooldown: 15,
+  attackCooldownTimer: 0
+
 };
 
 
@@ -51,8 +60,48 @@ window.addEventListener("keyup", (e) => {
   keys[e.key.toLowerCase()] = false;
 });
 
+window.addEventListener("mousedown", (e) => {
+  if (player.isAttacking || player.attackCooldownTimer > 0) return;
+
+  if (e.button === 0) { // Left click
+    startAttack("punch");
+  }
+
+  if (e.button === 2) { // Right click
+    startAttack("kick");
+  }
+});
+
+// Prevent right-click menu
+window.addEventListener("contextmenu", (e) => e.preventDefault());
+
+function startAttack(type) {
+  player.isAttacking = true;
+  player.attackType = type;
+  player.attackTimer = player.attackDuration;
+  player.attackCooldownTimer = player.attackCooldown;
+
+  // Stop movement during attack
+  player.vx = 0;
+}
+
 // Update
 function update() {
+
+  // Attack cooldown
+if (player.attackCooldownTimer > 0) {
+  player.attackCooldownTimer--;
+}
+
+// During attack
+if (player.isAttacking) {
+  player.attackTimer--;
+  if (player.attackTimer <= 0) {
+    player.isAttacking = false;
+    player.attackType = null;
+  }
+}
+
 
   // Dash cooldown
   if (player.dashCooldownTimer > 0) {
@@ -60,7 +109,8 @@ function update() {
   }
 
   // Start dash
-  if (keys["shift"] && !player.isDashing && player.dashCooldownTimer === 0) {
+if (keys["shift"] && !player.isDashing && !player.isAttacking && player.dashCooldownTimer === 0) {
+
     const dir = getDashDirection();
     if (dir) {
       player.isDashing = true;
@@ -113,6 +163,18 @@ function draw() {
   // Phoenix body (temporary rectangle)
   ctx.fillStyle = "orange";
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+  // Phoenix body
+if (player.isAttacking) {
+  ctx.fillStyle = player.attackType === "punch" ? "red" : "darkred";
+} else if (player.isDashing) {
+  ctx.fillStyle = "yellow";
+} else {
+  ctx.fillStyle = "orange";
+}
+
+ctx.fillRect(player.x, player.y, player.width, player.height);
+
 }
 
 // Game loop
