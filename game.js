@@ -49,7 +49,16 @@ fireBreathingActive: false,
 fireBreathingTimer: 0,
 fireBreathingDuration: 40,
 fireBreathingCooldown: 150,
-fireBreathingCooldownTimer: 0
+fireBreathingCooldownTimer: 0,
+
+// Ultimate: Meteor Fall
+// Ultimate: Meteor Fall
+meteorActive: false,
+meteorCooldown: 600,
+meteorCooldownTimer: 0,
+meteors: []
+
+
 
 
 };
@@ -159,6 +168,11 @@ window.addEventListener("keyup", (e) => {
   }
 });
 
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "v") {
+    castMeteorFall();
+  }
+});
 
 function isColliding(a, b) {
   return (
@@ -254,9 +268,99 @@ function startFireBreathing() {
 function stopFireBreathing() {
   player.fireBreathingActive = false;
 }
+function castMeteorFall() {
+  if (
+    player.meteorCooldownTimer > 0 ||
+    player.isDashing ||
+    player.isAttacking ||
+    player.fireBreathingActive ||
+    player.goAwayActive
+  )
+    return;
+
+  player.meteorActive = true;
+  player.meteorTimer = player.meteorDuration;
+  player.meteorCooldownTimer = player.meteorCooldown;
+  player.meteors = [];
+
+  const meteorCount = Math.floor(Math.random() * 2) + 4; // 4–5 meteors
+  const centerX =
+    player.facing === 1
+      ? player.x + 120
+      : player.x - 120;
+
+  for (let i = 0; i < meteorCount; i++) {
+    const angle =
+      ((Math.random() * 90 - 45) * Math.PI) / 180; // -45° to +45°
+
+    const speed = 6 + Math.random() * 2;
+
+    player.meteors.push({
+      x: centerX + Math.random() * 80 - 40,
+      y: -50 - Math.random() * 100,
+      vx: Math.sin(angle) * speed,
+      vy: Math.cos(angle) * speed,
+      hit: false
+    });
+  }
+
+  // Lock movement
+  player.vx = 0;
+}
+
 
 // Update
 function update() {
+  // Meteor cooldown
+// Meteor cooldown
+if (player.meteorCooldownTimer > 0) {
+  player.meteorCooldownTimer--;
+}
+
+// Meteor active
+if (player.meteorActive) {
+  player.meteorTimer--;
+
+  for (const m of player.meteors) {
+    m.x += m.vx;
+    m.y += m.vy;
+
+    // Impact
+    if (!m.hit && m.y >= canvas.height - 60) {
+      m.hit = true;
+
+      const dx =
+        enemy.x + enemy.width / 2 - m.x;
+      const dy =
+        enemy.y + enemy.height / 2 - m.y;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < 120 && enemy.health > 0) {
+        enemy.health -= 25;
+        enemy.hitFlashTimer = 15;
+
+        const nx = dx / distance;
+        const ny = dy / distance;
+        enemy.vx = nx * 7;
+        enemy.vy = ny * 7;
+      }
+    }
+  }
+  // End ultimate ONLY after all meteors have hit
+if (
+  player.meteorActive &&
+  player.meteors.length > 0 &&
+  player.meteors.every(m => m.hit)
+) {
+  player.meteorActive = false;
+  player.meteors = [];
+}
+
+
+ 
+}
+
+
   // Fire Breathing cooldown
 if (player.fireBreathingCooldownTimer > 0) {
   player.fireBreathingCooldownTimer--;
@@ -391,7 +495,7 @@ if (player.goAwayActive) {
     if (player.dashTimer <= 0) {
       player.isDashing = false;
     }
-  } else {
+} else if (!player.fireBreathingActive) {
     // Normal movement
     if (keys["a"]) {
       player.vx = -player.speed;
@@ -479,6 +583,14 @@ function draw() {
     ctx.fillStyle = "orange";
   }
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+if (player.meteorActive) {
+  ctx.fillStyle = "darkred";
+  for (const m of player.meteors) {
+    ctx.fillRect(m.x - 12, m.y - 12, 24, 24);
+  }
+}
+
 
 if (player.goAwayActive) {
   ctx.strokeStyle = "red";
