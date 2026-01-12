@@ -10,13 +10,39 @@ const player = {
   speed: 4,
   vx: 0,
   vy: 0,
-  onGround: false
+  onGround: false,
+
+  // Dash
+  isDashing: false,
+  dashSpeed: 12,
+  dashDuration: 10,
+  dashTimer: 0,
+  dashCooldown: 30,
+  dashCooldownTimer: 0
 };
+
 
 const gravity = 0.5;
 const keys = {};
 
 // Input handling
+
+function getDashDirection() {
+  let dx = 0;
+  let dy = 0;
+
+  if (keys["a"]) dx -= 1;
+  if (keys["d"]) dx += 1;
+  if (keys["w"]) dy -= 1;
+  if (keys["s"]) dy += 1;
+
+  if (dx === 0 && dy === 0) return null;
+
+  const length = Math.hypot(dx, dy);
+  return { x: dx / length, y: dy / length };
+}
+
+
 window.addEventListener("keydown", (e) => {
   keys[e.key.toLowerCase()] = true;
 });
@@ -27,20 +53,47 @@ window.addEventListener("keyup", (e) => {
 
 // Update
 function update() {
-  // Horizontal movement
-  if (keys["a"]) player.vx = -player.speed;
-  else if (keys["d"]) player.vx = player.speed;
-  else player.vx = 0;
 
-  // Jump
-  if (keys["w"] && player.onGround) {
-    player.vy = -10;
-    player.onGround = false;
+  // Dash cooldown
+  if (player.dashCooldownTimer > 0) {
+    player.dashCooldownTimer--;
   }
 
-  // Gravity
-  player.vy += gravity;
+  // Start dash
+  if (keys["shift"] && !player.isDashing && player.dashCooldownTimer === 0) {
+    const dir = getDashDirection();
+    if (dir) {
+      player.isDashing = true;
+      player.dashTimer = player.dashDuration;
+      player.vx = dir.x * player.dashSpeed;
+      player.vy = dir.y * player.dashSpeed;
+      player.dashCooldownTimer = player.dashCooldown;
+    }
+  }
 
+  // During dash
+  if (player.isDashing) {
+    player.dashTimer--;
+    if (player.dashTimer <= 0) {
+      player.isDashing = false;
+    }
+  } else {
+    // Normal movement
+    if (keys["a"]) player.vx = -player.speed;
+    else if (keys["d"]) player.vx = player.speed;
+    else player.vx = 0;
+
+    // Jump
+    if (keys["w"] && player.onGround) {
+      player.vy = -10;
+      player.onGround = false;
+    }
+
+    // Gravity
+    player.vy += gravity;
+  }
+
+  // Apply movement
   player.x += player.vx;
   player.y += player.vy;
 
@@ -51,6 +104,7 @@ function update() {
     player.onGround = true;
   }
 }
+
 
 // Draw
 function draw() {
@@ -70,4 +124,3 @@ function gameLoop() {
 
 gameLoop();
 
-console.log("2+2");
