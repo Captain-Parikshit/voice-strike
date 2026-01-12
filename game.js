@@ -44,9 +44,13 @@ const enemy = {
   y: 420,
   width: 40,
   height: 60,
+  vx: 0,
+  vy: 0,
   health: 100,
-  hitFlashTimer: 0,
+  hitFlashTimer: 0
 };
+const projectiles = [];
+
 
 const gravity = 0.5;
 const keys = {};
@@ -116,6 +120,12 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "q") {
+    castCrossFire();
+  }
+});
+
 
 function isColliding(a, b) {
   return (
@@ -149,6 +159,19 @@ function activateGoAway() {
   player.vx = 0;
 }
 
+function castCrossFire() {
+  const speed = 6;
+
+  projectiles.push({
+    x: player.facing === 1 ? player.x + player.width : player.x - 20,
+    y: player.y + player.height / 2 - 10,
+    width: 20,
+    height: 20,
+    vx: player.facing * speed,
+    life: 300 // ~5 seconds at 60fps
+  });
+}
+
 
 // Update
 function update() {
@@ -177,8 +200,9 @@ if (player.goAwayActive) {
     const nx = dx / distance;
     const ny = dy / distance;
 
-    enemy.x += nx * 20;
-    enemy.y += ny * 20;
+    enemy.vx = nx * 6;
+    enemy.vy = ny * 6;
+
 
     // Prevent multi-hit
     player.goAwayActive = false;
@@ -279,6 +303,44 @@ if (player.goAwayActive) {
   if (enemy.hitFlashTimer > 0) {
     enemy.hitFlashTimer--;
   }
+
+  // Enemy gravity
+enemy.vy += gravity;
+
+// Apply enemy movement
+enemy.x += enemy.vx;
+enemy.y += enemy.vy;
+
+// Enemy ground collision
+if (enemy.y + enemy.height >= canvas.height) {
+  enemy.y = canvas.height - enemy.height;
+  enemy.vy = 0;
+}
+
+// Slow down knockback over time (friction)
+enemy.vx *= 0.9;
+
+for (let i = projectiles.length - 1; i >= 0; i--) {
+  const p = projectiles[i];
+
+  p.x += p.vx;
+  p.life--;
+
+  // Hit enemy
+  if (enemy.health > 0 && isColliding(p, enemy)) {
+    enemy.health -= 25;
+    enemy.hitFlashTimer = 8;
+    projectiles.splice(i, 1);
+    continue;
+  }
+
+  // Remove if expired
+  if (p.life <= 0) {
+    projectiles.splice(i, 1);
+  }
+}
+
+
 }
 
 // Draw
@@ -315,6 +377,12 @@ if (player.goAwayActive) {
     ctx.fillStyle = enemy.hitFlashTimer > 0 ? "white" : "blue";
     ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
   }
+
+  ctx.fillStyle = "crimson";
+for (const p of projectiles) {
+  ctx.fillRect(p.x, p.y, p.width, p.height);
+}
+
 }
 
 
