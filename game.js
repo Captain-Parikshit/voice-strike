@@ -29,6 +29,14 @@ const player = {
   attackDuration: 10,
   attackCooldown: 15,
   attackCooldownTimer: 0,
+
+  // Special: Go Away
+goAwayActive: false,
+goAwayTimer: 0,
+goAwayDuration: 8,
+goAwayCooldown: 120,
+goAwayCooldownTimer: 0
+
 };
 
 const enemy = {
@@ -94,6 +102,21 @@ function startAttack(type) {
   // Stop movement during attack
   player.vx = 0;
 }
+
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "e") {
+    if (
+      !player.goAwayActive &&
+      player.goAwayCooldownTimer === 0 &&
+      !player.isAttacking &&
+      !player.isDashing
+    ) {
+      activateGoAway();
+    }
+  }
+});
+
+
 function isColliding(a, b) {
   return (
     a.x < b.x + b.width &&
@@ -117,9 +140,56 @@ function getAttackHitbox() {
   };
 }
 
+function activateGoAway() {
+  player.goAwayActive = true;
+  player.goAwayTimer = player.goAwayDuration;
+  player.goAwayCooldownTimer = player.goAwayCooldown;
+
+  // Stop movement during blast
+  player.vx = 0;
+}
+
 
 // Update
 function update() {
+
+// Go Away cooldown
+if (player.goAwayCooldownTimer > 0) {
+  player.goAwayCooldownTimer--;
+}
+
+// Go Away active
+if (player.goAwayActive) {
+  player.goAwayTimer--;
+
+  const dx = enemy.x + enemy.width / 2 - (player.x + player.width / 2);
+  const dy = enemy.y + enemy.height / 2 - (player.y + player.height / 2);
+  const distance = Math.hypot(dx, dy);
+
+  const blastRadius = 80;
+
+  if (distance < blastRadius && enemy.health > 0) {
+    // Damage
+    enemy.health -= 20;
+    enemy.hitFlashTimer = 8;
+
+    // Knockback
+    const nx = dx / distance;
+    const ny = dy / distance;
+
+    enemy.x += nx * 20;
+    enemy.y += ny * 20;
+
+    // Prevent multi-hit
+    player.goAwayActive = false;
+  }
+
+  if (player.goAwayTimer <= 0) {
+    player.goAwayActive = false;
+  }
+}
+
+
   if (player.isAttacking && enemy.health > 0) {
     const hitbox = getAttackHitbox();
 
@@ -223,8 +293,22 @@ function draw() {
   } else {
     ctx.fillStyle = "orange";
   }
-
   ctx.fillRect(player.x, player.y, player.width, player.height);
+
+if (player.goAwayActive) {
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(
+    player.x + player.width / 2,
+    player.y + player.height / 2,
+    80,
+    0,
+    Math.PI * 2
+  );
+  ctx.stroke();
+}
+
 
   // Enemy
   if (enemy.health > 0) {
